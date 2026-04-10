@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>稅務相關法規概要歷屆題庫查詢系統</title>
+    <style>
+        /* 直接定義深色模式為預設變數 */
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --container-bg: #1e1e1e;
+            --border-color: #444444;
+            --input-bg: #2d2d2d;
+            --input-text: #e0e0e0;
+            --button-bg: #2980b9;
+            --button-hover: #3498db;
+            --result-bg: #1a2630;
+            --result-border: #2980b9;
+            --answer-color: #ff6b6b;
+            --hint-color: #aaaaaa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            font-size: 20px; /* 設定整體預設字型大小為 20px */
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--text-color);
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        input[type="file"], select, input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 20px; /* 調整為 20px */
+        }
+        
+        .search-btn {
+            background-color: var(--button-bg);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px; /* 調整為 20px */
+            width: 100%;
+            transition: background-color 0.3s;
+            font-weight: bold;
+        }
+        .search-btn:hover {
+            background-color: var(--button-hover);
+        }
+        
+        .result-box {
+            background-color: var(--result-bg);
+            padding: 20px;
+            border-left: 5px solid var(--result-border);
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        .question-text {
+            font-size: 20px; /* 調整為 20px */
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+        }
+        .answer-text {
+            font-size: 20px; /* 調整為 20px */
+            font-weight: bold;
+            color: var(--answer-color);
+        }
+        .status {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 20px; /* 調整為 20px */
+        }
+        .success { color: #27ae60; }
+        .error { color: var(--answer-color); }
+        .hint { font-size: 20px; /* 調整為 20px */ color: var(--hint-color); margin-top: 5px;}
+    </style>
+</head>
+<body>
+
+    <h1>稅務相關法規概要歷屆題庫查詢系統</h1>
+
+    <div class="container">
+        <div class="form-group">
+            <label>1. 題庫載入狀態：</label>
+            <div id="uploadStatus" class="status">🔄 正在從伺服器自動載入歷屆題庫...</div>
+        </div>
+
+        <div class="form-group">
+            <label for="yearSelect">2. 選擇年份：</label>
+            <select id="yearSelect">
+                <option value="">載入中...</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="questionNum">3. 輸入題號 (按 Enter 直接查詢)：</label>
+            <input type="number" id="questionNum" min="1" placeholder="例如輸入 1 後按下 Enter">
+        </div>
+
+        <button id="searchBtn" class="search-btn">查詢題目與答案</button>
+    </div>
+
+    <div id="resultBox" class="result-box">
+        <div class="question-text" id="questionDisplay"></div>
+        <hr>
+        <div class="answer-text" id="answerDisplay"></div>
+    </div>
+
+    <script>
+        let examData = {};
+
+        // 定義要自動載入的稅務相關法規概要題庫檔案清單
+        const examFiles = [
+            '110稅務相關法規概要_題目及解答.txt',
+            '111稅務相關法規概要_題目及解答.txt',
+            '112稅務相關法規概要_題目及解答.txt',
+            '113稅務相關法規概要_題目及解答.txt',
+            '114稅務相關法規概要_題目及解答.txt'
+        ];
+
+        // 網頁載入完成時執行自動抓取
+        window.addEventListener('DOMContentLoaded', async function() {
+            let successCount = 0;
+            const statusDiv = document.getElementById('uploadStatus');
+
+            for (const filename of examFiles) {
+                try {
+                    const response = await fetch(filename);
+                    if (!response.ok) throw new Error(`HTTP 錯誤狀態: ${response.status}`);
+                    
+                    const text = await response.text();
+                    const isSuccess = parseExamText(filename, text);
+                    if (isSuccess) successCount++;
+                } catch (error) {
+                    console.error("無法載入檔案：" + filename, error);
+                }
+            }
+
+            if (successCount > 0) {
+                updateYearSelect();
+                statusDiv.innerText = `✅ 成功自動載入 ${successCount} 個年度的題庫！`;
+                statusDiv.className = "status success";
+            } else {
+                updateYearSelect();
+                statusDiv.innerText = `❌ 題庫載入失敗，請確認檔案已上傳至正確目錄。`;
+                statusDiv.className = "status error";
+            }
+        });
+
+        function parseExamText(filename, text) {
+            text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+            let year = "未知年份";
+            const yearMatch = filename.match(/(\d{3})/);
+            if (yearMatch) {
+                year = yearMatch[1];
+            }
+
+            let splitIndex = text.lastIndexOf("答案\n");
+            if (splitIndex === -1) splitIndex = text.lastIndexOf("解答\n");
+            if (splitIndex === -1) splitIndex = text.indexOf("\n1-10"); 
+            if (splitIndex === -1) return false;
+
+            let qText = text.substring(0, splitIndex);
+            let aText = text.substring(splitIndex);
+
+            let questions = {};
+            let answers = {};
+
+            let currentQNum = null;
+            let currentQLines = [];
+            const qLines = qText.split('\n');
+
+            for (let line of qLines) {
+                const m = line.match(/^\s*(\d+)[\s\.、]+(.*)/);
+                if (m) {
+                    if (currentQNum) questions[currentQNum] = currentQLines.join('\n').trim();
+                    currentQNum = m[1];
+                    currentQLines = [m[2]];
+                } else if (currentQNum && line.trim() !== "" && !line.includes("題目")) {
+                    currentQLines.push(line.trim());
+                }
+            }
+            if (currentQNum) questions[currentQNum] = currentQLines.join('\n').trim();
+
+            const aLines = aText.split('\n');
+            for (let line of aLines) {
+                const am = line.match(/(\d+)\s*[-~]\s*\d+\s*[:：]\s*(.+)/);
+                if (am) {
+                    const startNum = parseInt(am[1]);
+                    const ansStr = am[2];
+                    const ansArr = ansStr.split(/[,、]/).map(x => x.trim()).filter(x => x);
+                    
+                    for (let i = 0; i < ansArr.length; i++) {
+                        answers[startNum + i] = ansArr[i];
+                    }
+                }
+            }
+
+            if (Object.keys(questions).length > 0) {
+                examData[year] = { questions, answers };
+                return true;
+            }
+            return false;
+        }
+
+        function updateYearSelect() {
+            const select = document.getElementById('yearSelect');
+            select.innerHTML = '';
+            
+            const years = Object.keys(examData).sort((a, b) => b - a); 
+            
+            if (years.length === 0) {
+                select.innerHTML = '<option value="">無可用題庫...</option>';
+                return;
+            }
+
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year + " 年";
+                select.appendChild(option);
+            });
+        }
+
+        function performSearch() {
+            const year = document.getElementById('yearSelect').value;
+            const qNum = document.getElementById('questionNum').value;
+            const resultBox = document.getElementById('resultBox');
+            const qDisplay = document.getElementById('questionDisplay');
+            const aDisplay = document.getElementById('answerDisplay');
+
+            if (!year || !qNum) {
+                alert('請確認已成功載入檔案，並輸入要查詢的題號！');
+                return;
+            }
+
+            const yearData = examData[year];
+            if (!yearData) return;
+
+            const questionText = yearData.questions[qNum];
+            const answerText = yearData.answers[qNum];
+
+            resultBox.style.display = 'block';
+
+            if (questionText) {
+                qDisplay.innerText = `第 ${qNum} 題：\n${questionText}`;
+                aDisplay.innerText = `標準答案：${answerText || '查無此題答案'}`;
+            } else {
+                qDisplay.innerText = `⚠️ 在 ${year} 年的題庫中找不到第 ${qNum} 題。請確認題號是否輸入正確。`;
+                aDisplay.innerText = '';
+            }
+        }
+
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+
+        document.getElementById('questionNum').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                performSearch();    
+            }
+        });
+    </script>
+</body>
+</html>
